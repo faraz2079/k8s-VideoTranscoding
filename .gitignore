@@ -1,0 +1,7 @@
+.env
+.rendered/
+runs/
+videos/
+.DS_Store
+*.swp
+*~

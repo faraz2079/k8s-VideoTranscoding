@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ffmpeg-worker
+  namespace: __NAMESPACE__
+spec:
+  replicas: __WORKER_REPLICAS__
+  selector:
+    matchLabels:
+      app: ffmpeg-worker
+  template:
+    metadata:
+      labels:
+        app: ffmpeg-worker
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: worker
+        image: __IMAGE__
+        imagePullPolicy: Always
+        env:
+        - name: REDIS_HOST
+          value: redis
+        - name: MINIO_HOST
+          value: minio:9000
+        - name: MINIO_USER
+          value: "__MINIO_USER__"
+        - name: MINIO_PASSWORD
+          value: "__MINIO_PASSWORD__"
+        resources:
+          requests:
+            cpu: "__WORKER_CPU_REQUEST__"
+            memory: "__WORKER_MEM_REQUEST__"
+          limits:
+            cpu: "__WORKER_CPU_LIMIT__"
+            memory: "__WORKER_MEM_LIMIT__"
