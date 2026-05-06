@@ -30,29 +30,54 @@ get_active_pods() {
 }
 
 do_cleanup() {
+  echo "[CLEANUP] === Starting cleanup for $NS ==="
+
+  # Step 1: Scale workers to 0, clear queue
   echo "[CLEANUP] Scaling workers to 0..."
   kubectl scale deployment ffmpeg-worker -n $NS --replicas=0 > /dev/null 2>&1 || true
   echo "[CLEANUP] Clearing queue..."
   kubectl exec -n $NS deploy/redis -- redis-cli DEL transcoding-jobs > /dev/null 2>&1 || true
-  echo "[CLEANUP] Waiting for pods..."
-  kubectl wait --for=delete pods -l app=ffmpeg-worker -n $NS --timeout=60s 2>/dev/null || true
-  echo "[CLEANUP] Killing leftover ffmpeg..."
-  # Use pgrep -x with exact name "ffmpeg" — won't match conmon processes
+
+  # Step 2: Brief grace wait
+  echo "[CLEANUP] Waiting up to 30s for graceful termination..."
+  kubectl wait --for=delete pods -l app=ffmpeg-worker -n $NS --timeout=30s 2>/dev/null || true
+
+  # Step 3: Force-delete any pod still terminating
+  STUCK=$(kubectl get pods -n $NS -l app=ffmpeg-worker --no-headers 2>/dev/null | grep Terminating | awk '{print $1}')
+  if [ -n "$STUCK" ]; then
+    echo "[CLEANUP] Force-deleting stuck pods: $STUCK"
+    for pod in $STUCK; do
+      kubectl delete pod $pod -n $NS --grace-period=0 --force 2>/dev/null || true
+    done
+    sleep 3
+  fi
+
+  # Step 4: Kill leftover ffmpeg processes (real ffmpeg, not conmon)
+  echo "[CLEANUP] Killing leftover ffmpeg processes..."
   for attempt in 1 2 3 4 5; do
-    REMAINING=$(pgrep -x ffmpeg | wc -l)
+    REMAINING=$(pgrep -x ffmpeg 2>/dev/null | wc -l)
     [ "$REMAINING" = "0" ] && break
     sudo pkill -9 -x ffmpeg 2>/dev/null || true
     sleep $attempt
   done
-  REMAINING=$(pgrep -x ffmpeg | wc -l)
+  REMAINING=$(pgrep -x ffmpeg 2>/dev/null | wc -l)
   echo "[CLEANUP] Leftover ffmpeg processes: $REMAINING"
 
-  # Also clean up stale conmon processes for terminated worker pods
-  STALE_CONMON=$(ps -eo pid,cmd | grep conmon | grep ffmpeg-worker | grep -v grep | awk '{print $1}')
+  # Step 5: Clean up stale conmon helpers
+  STALE_CONMON=$(ps -eo pid,cmd 2>/dev/null | grep conmon | grep ffmpeg-worker | grep -v grep | awk '{print $1}')
   if [ -n "$STALE_CONMON" ]; then
     echo "[CLEANUP] Cleaning up stale conmon helpers..."
     sudo kill -9 $STALE_CONMON 2>/dev/null || true
   fi
+
+  # Step 6: Report
+  echo
+  echo "[CLEANUP] === Final state ==="
+  kubectl get pods -n $NS 2>/dev/null
+  echo
+  free -h
+  echo
+  echo "[CLEANUP] Done."
 }
 
 if ! kubectl get namespace $NS > /dev/null 2>&1; then
