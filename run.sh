@@ -116,6 +116,8 @@ finish_run() {
   for pid in "${LOG_PIDS[@]}"; do kill $pid 2>/dev/null; done
   do_cleanup
 
+  bash "$PWD/scripts/analyze-run.sh" "$OUT" | tee "$OUT/SUMMARY.txt"
+
   echo "EXPERIMENT COMPLETE  Results: $OUT"
   ls -1 "$OUT" | sed 's/^/  - /'
 }
