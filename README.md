@@ -39,6 +39,3 @@ cp .env.example .env
 Each run creates runs/run-YYYYMMDD-HHMMSS/ with summary.csv, metrics.log,
 log-pod.txt, and pre/post state files.
 
-## License
-
-MIT
