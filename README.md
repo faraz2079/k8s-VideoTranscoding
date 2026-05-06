@@ -18,13 +18,13 @@ stress is the natural byproduct of real encoding work.
 - mc (MinIO client)
 
 ## Quick Start
-git clone <this-repo>
-cd ffmpeg-stress-test
-./scripts/install-prereqs.sh
-cp .env.example .env
-./setup.sh
-./scripts/upload-video.sh /path/to/4k-video.mkv
-./run.sh
+- git clone <this-repo>
+- cd ffmpeg-stress-test
+- ./scripts/install-prereqs.sh
+- cp .env.example .env
+- ./setup.sh
+- ./scripts/upload-video.sh /path/to/4k-video.mkv
+- ./run.sh
 
 ## Sizing
 
